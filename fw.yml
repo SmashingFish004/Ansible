@@ -1,0 +1,9 @@
+---
+- name: Stop Linux Firewall
+  hosts: all
+  become: true
+  tasks:
+  - name: Stop firewall service
+    service:
+      name: ufw
+      state: stopped

@@ -1,0 +1,16 @@
+---
+- name: Disable SELinux on Ubuntu
+  hosts: all
+  become: yes
+  tasks:
+    - name: Check if SELinux is enabled
+      shell: getenforce
+      register: selinux_status
+
+    - name: Disable SELinux
+      when: selinux_status.stdout == 'Enforcing'
+      lineinfile:
+        path: /etc/selinux/config
+        regexp: '^SELINUX='
+        line: 'SELINUX=permissive'
+        backup: yes
