@@ -1,0 +1,21 @@
+---
+- name: Block outgoing HTTP and HTTPS traffic
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Block outgoing HTTP traffic
+      iptables:
+        chain: OUTPUT
+        protocol: tcp
+        destination_port: 80
+        jump: DROP
+        state: present
+
+    - name: Block outgoing HTTPS traffic
+      iptables:
+        chain: OUTPUT
+        protocol: tcp
+        destination_port: 443
+        jump: DROP
+        state: present
