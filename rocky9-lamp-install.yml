@@ -1,44 +1,63 @@
-- hosts: all
+---
+- name: Install LAMP Stack on Rocky Linux
+  hosts: your_server_ip_or_hostname
   become: yes
+  become_method: sudo
   tasks:
-    - name: Install Apache
-      dnf:
-        name: httpd
+    - name: Update package cache
+      yum:
+        name: '*'
         state: latest
-        
-    - name: Start Apache
+      register: update_result
+
+    - name: Install Apache
+      yum:
+        name: httpd
+        state: present
+
+    - name: Start Apache and enable it at boot
       service:
         name: httpd
         state: started
         enabled: yes
 
     - name: Install MySQL
-      dnf:
-        name:
-          - mysql-server
-          - mysql
-        state: latest
+      yum:
+        name: mysql-server
+        state: present
 
-    - name: Start MySQL
+    - name: Start MySQL and enable it at boot
       service:
         name: mysqld
         state: started
         enabled: yes
 
-    - name: Install PHP
-      dnf:
+    - name: Secure MySQL Installation
+      command: mysql_secure_installation
+      args:
+        stdin: |
+          Y
+          your_mysql_root_password
+          your_mysql_root_password
+          Y
+          Y
+          Y
+          Y
+      when: update_result.changed
+
+    - name: Install PHP and required modules
+      yum:
         name:
           - php
-          - php-mysqlnd
-        state: latest
+          - php-mysql
+          - php-common
+          - php-cli
+          - php-json
+          - php-opcache
+          - php-readline
+        state: present
 
-    - name: Configure PHP
-      lineinfile:
-        path: /etc/php.ini
-        regexp: '^date.timezone ='
-        line: 'date.timezone = Europe/London'
-
-    - name: Restart Apache
+    - name: Restart Apache to apply PHP changes
       service:
         name: httpd
         state: restarted
