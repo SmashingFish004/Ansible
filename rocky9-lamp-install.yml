@@ -1,102 +1,44 @@
----
-- name: Install LAMP Stack on Rocky Linux 9
-  hosts: all
+- hosts: all
   become: yes
   tasks:
-    - name: Update the package cache
+    - name: Install Apache
       dnf:
-        name: '*'
+        name: httpd
         state: latest
-      tags: update
-
-    - name: Install Apache HTTP Server
-      dnf:
+        
+    - name: Start Apache
+      service:
         name: httpd
-        state: present
-      tags: apache
-
-    - name: Start and enable Apache service
-      systemd:
-        name: httpd
-        enabled: yes
         state: started
-      tags: apache
-
-    - name: Install MySQL server and Python MySQL module
-      dnf:
-        name: "{{ item }}"
-        state: present
-      loop:
-        - mariadb-server
-        - MySQL-python
-      tags: mysql
-
-    - name: Start and enable MySQL service
-      systemd:
-        name: mariadb
         enabled: yes
-        state: started
-      tags: mysql
 
-    - name: Secure MySQL installation (set root password)
-      command: mysql_secure_installation
-      args:
-        stdin: |
-          Y
-          your_mysql_root_password
-          your_mysql_root_password
-          Y
-          Y
-          Y
-          Y
-      register: mysql_secure_result
-      changed_when: "'mysql_secure_installation' in mysql_secure_result.stdout"
-      ignore_errors: yes
-      tags: mysql
-
-    - name: Install PHP and required modules
+    - name: Install MySQL
       dnf:
-        name: "{{ item }}"
-        state: present
-      loop:
-        - php
-        - php-mysqlnd
-        - php-common
-        - php-gd
-        - php-mbstring
-        - php-mcrypt
-        - php-xml
-        - php-xmlrpc
-        - php-opcache
-      tags: php
+        name:
+          - mysql-server
+          - mysql
+        state: latest
 
-    - name: Restart Apache to apply PHP changes
-      systemd:
-        name: httpd
-        state: restarted
-      tags: php
+    - name: Start MySQL
+      service:
+        name: mysqld
+        state: started
+        enabled: yes
 
-    - name: Create a PHP info file
-      template:
-        src: phpinfo.php.j2
-        dest: /var/www/html/phpinfo.php
-      tags: php
+    - name: Install PHP
+      dnf:
+        name:
+          - php
+          - php-mysqlnd
+        state: latest
 
-    - name: Ensure firewall allows HTTP traffic
-      firewalld:
-        service: http
-        permanent: yes
-        state: enabled
-        immediate: yes
-      tags: firewall
+    - name: Configure PHP
+      lineinfile:
+        path: /etc/php.ini
+        regexp: '^date.timezone ='
+        line: 'date.timezone = Europe/London'
 
-    - name: Reload firewall to apply changes
-      firewalld:
-        reload: yes
-      tags: firewall
-
-  handlers:
-    - name: Restart Apache service
-      systemd:
+    - name: Restart Apache
+      service:
         name: httpd
         state: restarted
