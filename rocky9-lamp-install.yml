@@ -1,6 +1,7 @@
 ---
 - name: Install LAMP Stack on Rocky Linux 9
   hosts: all
+  become: yes
   tasks:
     - name: Update the package cache
       dnf:
