@@ -1,6 +1,6 @@
 ---
 - name: Install LAMP Stack on Rocky Linux
-  hosts: your_server_ip_or_hostname
+  hosts: all
   become: yes
   become_method: sudo
   tasks:
