@@ -7,6 +7,10 @@ ansible_become_password=@@%Ash01@
 # vm1 Ansible-Ubuntu-01
 vm1 ansible_host=10.32.20.134
 
+[rocky]
+# This is the Rocky Linux Server Group
+rocky9-02.localdomain ansible_ssh_host=10.32.23.73
+
 [centos]
 # This is the NationWide Server Group
 
