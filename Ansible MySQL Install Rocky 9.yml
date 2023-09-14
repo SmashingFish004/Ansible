@@ -1,0 +1,16 @@
+---
+- name: Install MySQL on Rocky Linux 9
+  hosts: all  # Replace with the actual host or group name for your Rocky Linux server
+  become: yes  # This allows Ansible to run commands with sudo privileges
+
+  tasks:
+    - name: Install MySQL packages
+      package:
+        name: mysql-server
+        state: present
+
+    - name: Start MySQL service
+      service:
+        name: mysqld
+        state: started
+        enabled: yes
