@@ -1,0 +1,20 @@
+---
+- name: Install and Configure Active Directory on Windows Server
+  hosts: windows_server  # Replace with the actual host or group name for your Windows Server
+  gather_facts: no  # Disable facts gathering since we're targeting Windows
+
+  tasks:
+    - name: Install Active Directory Domain Services
+      win_feature:
+        name: AD-Domain-Services
+        state: present
+      register: ad_install_result
+
+    - name: Promote the server to a domain controller
+      win_command: |
+        Install-ADDSForest -DomainName acme.org -SafeModeAdministratorPassword (ConvertTo-SecureString "Password123!" -AsPlainText -Force) -InstallDns
+      when: ad_install_result.changed
+
+    - name: Restart the server
+      win_reboot:
+      when: ad_install_result.changed
