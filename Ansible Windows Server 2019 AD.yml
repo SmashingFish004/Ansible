@@ -1,6 +1,6 @@
 ---
 - name: Install and Configure Active Directory on Windows Server
-  hosts: windows_server  # Replace with the actual host or group name for your Windows Server
+  hosts: all  # Replace with the actual host or group name for your Windows Server
   gather_facts: no  # Disable facts gathering since we're targeting Windows
 
   tasks:
