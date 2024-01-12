@@ -1,0 +1,29 @@
+---
+- name: Create Users
+  hosts: all
+  become: yes
+
+  vars:
+    users_to_create:
+      - username: user1
+        password: Password123?  # Use encrypted password, generated with `mkpasswd` or similar
+        groups: ["sudo", "developers"]
+        shell: "/bin/bash"
+        home: "/home/user1"
+
+      - username: user2
+        password: Password123?
+        groups: ["users"]
+        shell: "/bin/bash"
+        home: "/home/user2"
+
+  tasks:
+    - name: Create users
+      user:
+        name: "{{ item.username }}"
+        password: "{{ item.password }}"
+        groups: "{{ item.groups }}"
+        shell: "{{ item.shell }}"
+        home: "{{ item.home }}"
+        createhome: yes
+      loop: "{{ users_to_create }}"
