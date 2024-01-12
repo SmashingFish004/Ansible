@@ -1,0 +1,32 @@
+- name: Install and Configure Windows Server 2019 AD
+  hosts: all
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Install Active Directory Domain Services
+      win_feature:
+        name: AD-Domain-Services
+        state: present
+
+    - name: Promote server to a Domain Controller
+      win_domain_controller:
+        hostname: "{{ inventory_hostname }}"
+        domain_name: acme.org
+        safe_mode_password: Password123?
+        database_path: C:\Windows\NTDS
+        log_path: C:\Windows\NTDS
+        sysvol_path: C:\Windows\SYSVOL
+        domain_admin_user: adminuser
+        domain_admin_password: Password123?
+        install_dns: yes
+        create_dns_delegation: no
+      register: dcpromo_result
+      when: "'DomainController' not in ansible_facts['windows_role']"
+
+    - name: Restart the server to complete promotion (if needed)
+      win_reboot:
+      when: dcpromo_result.reboot_required
+
+    - name: Wait for the server to come back online
+      wait_for_connection:
+        timeout: 600
