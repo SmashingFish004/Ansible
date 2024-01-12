@@ -1,6 +1,6 @@
 - name: Install and Configure Windows Server 2019 AD
   hosts: all
-  gather_facts: no
+  gather_facts: yes
   become: yes
   become_user: Administrator  # Specify the user here
   tasks:
