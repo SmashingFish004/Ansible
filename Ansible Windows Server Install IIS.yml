@@ -1,0 +1,17 @@
+---
+- name: Install IIS on Windows
+  hosts: all
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Install IIS feature
+      win_feature:
+        name: Web-Server
+        state: present
+
+    - name: Ensure IIS service is running
+      win_service:
+        name: W3SVC
+        start_mode: auto
+        state: started
