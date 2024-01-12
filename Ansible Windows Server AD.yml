@@ -2,6 +2,7 @@
   hosts: all
   gather_facts: no
   become: yes
+  become_user: Administrator  # Specify the user here
   tasks:
     - name: Install Active Directory Domain Services
       win_feature:
