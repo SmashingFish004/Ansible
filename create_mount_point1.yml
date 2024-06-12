@@ -1,6 +1,6 @@
 ---
 - name: Get disk labels and create mount points
-  hosts: your_host
+  hosts: all
   become: true
   tasks:
     - name: Get all disk labels excluding sda
