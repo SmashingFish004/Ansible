@@ -11,13 +11,19 @@
       debug:
         var: lsblk_output.stdout_lines
 
-    - name: Filter out main disk and set fact for non-main disk UUID
+    - name: Find non-main disk
       set_fact:
         non_main_disk_info: "{{ item.split() }}"
-      when: item.split()[1] == 'disk' and item.split()[0] != 'sda' and (item.split() | length) >= 5 and item.split()[4] == ''
-      with_items: "{{ lsblk_output.stdout_lines }}"
+      loop: "{{ lsblk_output.stdout_lines }}"
+      loop_control:
+        label: "{{ item }}"
+      when:
+        - item.split() | length >= 5
+        - item.split()[1] == 'disk'
+        - item.split()[0] != 'sda'
+        - item.split()[4] == ''
 
-    - name: Ensure non_main_disk_info is defined
+    - name: Fail if no suitable non-main disk is found
       fail:
         msg: "No suitable non-main disk found."
       when: non_main_disk_info is not defined
@@ -39,8 +45,11 @@
         src: "/dev/{{ non_main_disk_info[0] }}"
         fstype: ext4
         state: mounted
-      when: non_main_disk_info is defined
 
     - name: Persist the mount in fstab
       mount:
-        path: /mnt/my
+        path: /mnt/my_mount_point
+        src: "/dev/{{ non_main_disk_info[0] }}"
+        fstype: ext4
+        opts: defaults
+        state: present
