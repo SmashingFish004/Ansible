@@ -1,0 +1,47 @@
+---
+- name: Get disk label and create a mount point
+  hosts: all
+  become: yes
+  tasks:
+    - name: Gather disk facts
+      command: lsblk -o NAME,TYPE,SIZE,UUID,MOUNTPOINT -dn
+      register: lsblk_output
+
+    - name: Debug lsblk output
+      debug:
+        var: lsblk_output.stdout_lines
+
+    - name: Filter out main disk and set fact for non-main disk UUID
+      set_fact:
+        non_main_disk_uuid: "{{ item.split()[3] }}"
+        non_main_disk_name: "/dev/{{ item.split()[0] }}"
+      when: item.split()[1] == 'disk' and item.split()[4] == '' and item.split()[0] != 'sda'
+      with_items: "{{ lsblk_output.stdout_lines }}"
+
+    - name: Create filesystem on the non-main disk
+      filesystem:
+        fstype: ext4
+        dev: "{{ non_main_disk_name }}"
+      when: non_main_disk_uuid is defined
+
+    - name: Create mount point directory
+      file:
+        path: /mnt/my_mount_point
+        state: directory
+
+    - name: Mount the filesystem
+      mount:
+        path: /mnt/my_mount_point
+        src: "{{ non_main_disk_name }}"
+        fstype: ext4
+        state: mounted
+      when: non_main_disk_uuid is defined
+
+    - name: Persist the mount in fstab
+      mount:
+        path: /mnt/my_mount_point
+        src: "{{ non_main_disk_name }}"
+        fstype: ext4
+        opts: defaults
+        state: present
+      when: non_main_disk_uuid is defined
