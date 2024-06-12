@@ -1,0 +1,22 @@
+---
+- name: Get disk labels and create mount points
+  hosts: your_host
+  become: true
+  tasks:
+    - name: Get all disk labels excluding sda
+      command: lsblk --noheadings --output NAME --list --path /dev/sd[b-z]
+      register: disk_labels
+
+    - name: Create mount point for each disk
+      file:
+        path: "/mnt/{{ item }}"
+        state: directory
+      loop: "{{ disk_labels.stdout_lines }}"
+
+    - name: Mount each disk
+      mount:
+        path: "/mnt/{{ item }}"
+        src: "/dev/{{ item }}"
+        fstype: auto
+        state: mounted
+      loop: "{{ disk_labels.stdout_lines }}"
