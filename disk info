@@ -1,0 +1,11 @@
+---
+- name: Gather disk information from Linux server
+  hosts: all
+  become: yes
+  tasks:
+    - name: Gather all system facts
+      ansible.builtin.setup:
+
+    - name: Print disk information
+      debug:
+        msg: "{{ ansible_facts['ansible_devices'] }}"
