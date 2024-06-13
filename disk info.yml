@@ -3,9 +3,15 @@
   hosts: all
   become: yes
   tasks:
-    - name: Gather all system facts
+    - name: Gather all system facts, including hardware information
       ansible.builtin.setup:
+        gather_subset:
+          - all
+
+    - name: Print all gathered facts (for debugging purposes)
+      debug:
+        var: ansible_facts
 
     - name: Print disk information
       debug:
-        msg: "{{ ansible_facts['ansible_devices'] }}"
+        msg: "{{ ansible_facts['ansible_devices'] | default('No disk information found') }}"
