@@ -1,8 +1,12 @@
 ---
 - name: "Collect hw info"
-  setup:
-    gather_subset:
-      - hardware
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Gather hardware information
+      setup:
+        gather_subset:
+          - hardware
 
 - name: Store the os disk list count as a fact
   set_fact:
