@@ -62,13 +62,16 @@
     fstype: ext4
     state: mounted
 
-- name: Add entry to /etc/fstab
+- name: Add entry to /etc/fstab if not already present
   lineinfile:
     path: /etc/fstab
     line: "/dev/{{ vgName }}/{{ lv_name }}  {{ mount_path }}  ext4  defaults  0  0"
     create: yes
+    state: present
   become: true
+  register: fstab_result
 
-- name: Remount all in fstab
+- name: Remount all in fstab if fstab was modified
   command: mount -a
   become: true
+  when: fstab_result.changed
