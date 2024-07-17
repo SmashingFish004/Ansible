@@ -17,16 +17,18 @@
     vg: "{{ vgName }}"
     pvs: "{{ new_disk }}1"
 
+- name: Register the volumes from Morpheus
+  set_fact:
+    volumes: "{{ morpheus['instance']['containers'][0]['server']['volumes'] }}"
+
 - name: Get the name of the volume matching new_disk
   set_fact:
-    volume_name: "{{ item.name }}"
-  loop: "{{ morpheus['instance']['containers'][0]['server']['volumes'] }}"
-  when: item.deviceName == new_disk
-  register: volume_name_result
+    volume_name_result: "{{ volumes | selectattr('deviceName', 'equalto', new_disk) | list }}"
 
 - name: Extract volume name from the result
   set_fact:
-    volume_name: "{{ volume_name_result.results[0].ansible_facts.volume_name }}"
+    volume_name: "{{ volume_name_result[0].name }}"
+  when: volume_name_result | length > 0
 
 - name: Replace / with _ and set lv_name
   set_fact:
