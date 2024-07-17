@@ -55,12 +55,12 @@
     state: directory
     mode: '0755'
 
-- name: Mount the lv
-  ansible.posix.mount:
-    path: "{{ mount_path }}"
-    src: "/dev/{{ vgName }}/{{ lv_name }}"
-    fstype: ext4
-    state: mounted
+- name: Check if entry exists in /etc/fstab
+  shell:
+    cmd: "grep -q '/dev/{{ vgName }}/{{ lv_name }}' /etc/fstab"
+    warn: false
+  register: check_fstab_entry
+  changed_when: false
 
 - name: Add entry to /etc/fstab if not already present
   lineinfile:
@@ -69,9 +69,9 @@
     create: yes
     state: present
   become: true
-  register: fstab_result
+  when: check_fstab_entry.rc != 0
 
-- name: Remount all in fstab if fstab was modified
+- name: Remount all in /etc/fstab if fstab was modified
   command: mount -a
   become: true
-  when: fstab_result.changed
+  when: check_fstab_entry.rc != 0
