@@ -42,63 +42,7 @@
       shell: echo "- - -" | sudo tee /sys/class/scsi_host/host*/scan >/dev/null
 
     - name: Process each new disk
-      block:
-        - name: Create partition on new disk
-          community.general.parted:
-            device: "{{ new_disk }}"
-            number: 1
-            label: "gpt"
-            flags: lvm
-            state: present
-            part_end: "100%"
-
-        - name: Set VG name
-          set_fact:
-            vgName: "{{ new_disk | basename }}vg"
-
-        - name: Create/Extend PV and VG
-          community.general.lvg:
-            vg: "{{ vgName }}"
-            pvs: "{{ new_disk }}1"
-
-        - name: Get the name of the volume matching new_disk
-          set_fact:
-            volume_name: "{{ item.name }}"
-          loop: "{{ morpheus['instance']['containers'][0]['server']['volumes'] }}"
-          when: item.deviceName == new_disk
-          register: volume_name_result
-
-        - name: Extract volume name from the result
-          set_fact:
-            volume_name: "{{ volume_name_result.results[0].ansible_facts.volume_name }}"
-
-        - name: Replace / with _ and set lv_name
-          set_fact:
-            lv_name: "{{ volume_name | replace('/', '_') }}"
-
-        - name: LV with 100% free space in vg
-          community.general.lvol:
-            vg: "{{ vgName }}"
-            lv: "{{ lv_name }}"
-            size: 100%FREE
-
-        - name: Format the lv with ext4
-          community.general.filesystem:
-            fstype: ext4
-            dev: "/dev/{{ vgName }}/{{ lv_name }}"
-
-        - name: Create target directory
-          ansible.builtin.file:
-            path: "{{ volume_name }}"
-            state: directory
-            mode: "0755"
-
-        - name: Mount the lv
-          ansible.posix.mount:
-            path: "{{ volume_name }}"
-            src: "/dev/{{ vgName }}/{{ lv_name }}"
-            fstype: ext4
-            state: mounted
+      include_tasks: create_partition_and_volume.yml
       loop: "{{ new_disks }}"
       loop_control:
         loop_var: new_disk
