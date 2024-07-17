@@ -37,6 +37,10 @@
       debug:
         msg: "'abcdefghijklmnopqrstuvwxyz'[{{ disk_data_count_int }}]"
 
+    - name: Ensure new_disk variable is defined
+      set_fact:
+        new_disk: ""
+
     - name: Check if counts are different and set new_disk if necessary
       set_fact:
         new_disk: "sd{{ 'abcdefghijklmnopqrstuvwxyz'[disk_data_count_int | int] }}"
@@ -46,13 +50,18 @@
       debug:
         var: new_disk
 
+    - name: Fail if new_disk is not set
+      fail:
+        msg: "No new disk to create partition on."
+      when: new_disk == ""
+
     - name: Scan for new disks
       become: true
       shell: echo "- - -" | sudo tee /sys/class/scsi_host/host*/scan >/dev/null
 
     - name: Create partition
       community.general.parted:
-        device: "/dev/{{new_disk}}"
+        device: "/dev/{{ new_disk }}"
         number: 1
         label: "gpt"
         flags: lvm
@@ -61,12 +70,12 @@
 
     - name: Set VG name
       set_fact:
-        vgName: "{{new_disk}}vg"
+        vgName: "{{ new_disk }}vg"
 
     - name: Create/Extend PV and VG
       community.general.lvg:
         vg: "{{ vgName }}"
-        pvs: "/dev/{{new_disk}}1"
+        pvs: "/dev/{{ new_disk }}1"
 
     - name: Get the name of the volume matching new_disk
       set_fact:
