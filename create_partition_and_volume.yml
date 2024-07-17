@@ -63,9 +63,13 @@
     create: yes
     state: present
   become: true
-  when: check_fstab_entry.stdout != "not_found"
+  when: check_fstab_entry.stdout == "not_found"
 
-- name: Remount all in /etc/fstab if fstab was modified
-  command: mount -a
+- name: Mount the lv
+  ansible.posix.mount:
+    path: "{{ mount_path }}"
+    src: "/dev/{{ vgName }}/{{ lv_name }}"
+    fstype: ext4
+    state: mounted
   become: true
-  when: check_fstab_entry.stdout != "not_found"
+  when: check_fstab_entry.stdout == "not_found"
