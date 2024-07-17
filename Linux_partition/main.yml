@@ -1,0 +1,49 @@
+
+---
+- name: "Collect hw info"
+  hosts: all
+  gather_facts: no
+  tasks:
+    - name: Gather hardware information
+      setup:
+        gather_subset:
+          - hardware
+
+    - name: Store the OS disk list count as a fact
+      set_fact:
+        os_disks: "{{ hostvars[inventory_hostname].ansible_devices.keys() | map('regex_search', 'sd.*') | select('string') }}"
+
+    - name: Debug existing disk count
+      debug:
+        var: os_disks
+
+    - name: Store the disk count of Morpheus as a fact
+      set_fact:
+        morpheus_disks: "{{ morpheus['instance']['containers'][0]['server']['volumes'] | map(attribute='deviceName') }}"
+
+    - name: Debug instance disk count
+      debug:
+        var: morpheus_disks
+
+    - name: Find new disks
+      set_fact:
+        new_disks: "{{ morpheus_disks | difference(os_disks | map('regex_replace', '^', '/dev/')) }}"
+
+    - name: Debug new disks
+      debug:
+        var: new_disks
+
+    - name: Fail if no new disks
+      fail:
+        msg: "No new disks to create partitions on."
+      when: new_disks | length == 0
+
+    - name: Scan for new disks
+      become: true
+      shell: echo "- - -" | sudo tee /sys/class/scsi_host/host*/scan >/dev/null
+
+    - name: Process each new disk
+      include_tasks: create_partition_and_volume.yml
+      loop: "{{ new_disks }}"
+      loop_control:
+        loop_var: new_disk
