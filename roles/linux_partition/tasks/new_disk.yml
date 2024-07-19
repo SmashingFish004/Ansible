@@ -32,7 +32,14 @@
 
 - name: Create PV
   command: pvcreate /dev/{{ item }}1
+  register: pv_create_output
   with_items: "{{ new_disks }}"
+  ignore_errors: yes
+
+- name: Display PV creation output
+  debug:
+    msg: "PV creation output for {{ item.item }}: {{ item.stdout }}"
+  with_items: "{{ pv_create_output.results }}"
 
 - name: Debug PV creation
   command: pvs
@@ -60,12 +67,23 @@
     msg: "VG info: {{ vgs_info.stdout_lines }}"
   when: vgs_info is defined and vgs_info.stdout_lines is defined
 
+- name: Check VG free space
+  command: vgs --noheadings --units m -o vg_free {{ vgName }}
+  register: vg_free_space
+  ignore_errors: yes
+
+- name: Display VG free space
+  debug:
+    msg: "Free space in VG {{ vgName }}: {{ vg_free_space.stdout }}"
+  when: vg_free_space is defined and vg_free_space.stdout is defined
+
 - name: Create LV
   lvol:
     vg: "{{ vgName }}"
     lv: "{{ 'lv_' ~ item }}"
     size: "100%FREE"
   with_items: "{{ new_disks }}"
+  when: vg_free_space.stdout | float > 0
 
 - name: Debug LV creation
   command: lvs
