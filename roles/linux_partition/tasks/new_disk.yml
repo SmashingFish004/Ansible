@@ -21,7 +21,7 @@
 - name: Create VG
   lvg:
     vg: "{{ vgName }}"
-    pvs: "/dev/{{ item }}"
+    pvs: "/dev/{{ item }}1"
   with_items: "{{ new_disks }}"
 
 - name: Create LV
