@@ -1,0 +1,53 @@
+# Setup the partition when a new disk is added during reconfigure.
+---
+- name: Scan for new disks
+  become: true
+  shell: echo "- - -" | sudo tee /sys/class/scsi_host/host*/scan >/dev/null
+
+- name: Create partition
+  community.general.parted:
+    device: "/dev/{{ item }}"
+    number: 1
+    label: "gpt"
+    flags: lvm
+    state: present
+    part_end: "100%"
+  with_items: "{{ new_disks }}"
+
+- name: Set VG name
+  set_fact:
+    vgName: "vg_data"
+
+- name: Create VG
+  lvg:
+    vg: "{{ vgName }}"
+    pvs: "/dev/{{ item }}"
+  with_items: "{{ new_disks }}"
+
+- name: Create LV
+  lvol:
+    vg: "{{ vgName }}"
+    lv: "{{ 'lv_' ~ item }}"
+    size: "100%FREE"
+  with_items: "{{ new_disks }}"
+
+- name: Format the lv
+  filesystem:
+    fstype: ext4
+    dev: "/dev/{{ vgName }}/{{ 'lv_' ~ item }}"
+  with_items: "{{ new_disks }}"
+
+- name: Target directory
+  ansible.builtin.file:
+    path: "/mnt/{{ 'lv_' ~ item }}"
+    state: directory
+    mode: "0755"
+  with_items: "{{ new_disks }}"
+
+- name: mount the lv
+  ansible.posix.mount:
+    path: "/mnt/{{ 'lv_' ~ item }}"
+    src: "/dev/{{ vgName }}/{{ 'lv_' ~ item }}"
+    fstype: ext4
+    state: mounted
+  with_items: "{{ new_disks }}"
