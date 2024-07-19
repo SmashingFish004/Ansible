@@ -1,4 +1,5 @@
-# Compare the disks in OS with Morpheus volumes list. Skip sda and verify if other disks are partitioned and mounted as per label
+#Compare the disks in OS with Morpheus volumes list. Skip sda and verify if other disks are partitioned and mounted as per label
+
 ---
 - name: Disk count in Morpheus
   debug:
@@ -8,7 +9,7 @@
   block:
     - name: Set the initial new_disk to null
       set_fact:
-        new_disks_final: []
+        new_disk_final: null
 
     - name: Check if mount point exists
       stat:
@@ -21,19 +22,25 @@
       debug:
         msg: "{{ mount_point_stat }}"
 
-    - name: Set the new_disks fact if mount point does not exist
+    # - name: Get the mount point name if disk is not sda
+    #   debug:
+    #     msg: "{{ item.item.deviceName }}"
+    #   when: "item.stat is defined"
+    #   with_items: "{{ mount_point_stat.results }}"
+
+    - name: Set the new_disk fact if mount point does not exist
       set_fact:
-        new_disks_final: "{{ new_disks_final + [item.item.deviceName | regex_replace('/dev/', '')] }}"
+        new_disk_final: "{{ item.item.deviceName | regex_replace('/dev/', '') }}"
       when: "item.stat is defined and not item.stat.exists and item.item.deviceName != '/dev/sda'"
       with_items: "{{ mount_point_stat.results }}"
 
-    - name: Debug final new_disks
+    - name: Debug final new_disk
       debug:
-        var: new_disks_final
+        var: new_disk_final
 
-    - name: Include additional tasks if new_disks_final is defined
+    - name: Include additional tasks if new_disk_final is defined
       include_tasks: new_disk.yml
       vars:
-        new_disks: "{{ new_disks_final }}"
-      when: new_disks_final | length > 0
+        new_disk: "{{ new_disk_final }}"
+      when: new_disk_final is not none
   when: disk_list_count_int == disk_data_count_int
