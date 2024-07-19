@@ -14,6 +14,17 @@
     part_end: "100%"
   with_items: "{{ new_disks }}"
 
+- name: Debug partitions
+  command: lsblk /dev/{{ item }}1
+  register: partitions
+  with_items: "{{ new_disks }}"
+  ignore_errors: yes
+
+- name: Display partition info
+  debug:
+    msg: "Partition info: {{ partitions.stdout_lines }}"
+  when: partitions is defined
+
 - name: Set VG name
   set_fact:
     vgName: "vg_data"
@@ -22,19 +33,31 @@
   command: pvcreate /dev/{{ item }}1
   with_items: "{{ new_disks }}"
 
+- name: Debug PV creation
+  command: pvs
+  register: pvs_info
+  ignore_errors: yes
+
+- name: Display PV info
+  debug:
+    msg: "PV info: {{ pvs_info.stdout_lines }}"
+  when: pvs_info is defined
+
 - name: Create VG
   lvg:
     vg: "{{ vgName }}"
     pvs: "/dev/{{ item }}1"
   with_items: "{{ new_disks }}"
 
-- name: Debug VG free space
-  command: vgs --noheadings --units m -o vg_free {{ vgName }}
-  register: vg_free_space
+- name: Debug VG creation
+  command: vgs
+  register: vgs_info
+  ignore_errors: yes
 
-- name: Display VG free space
+- name: Display VG info
   debug:
-    msg: "Free space in VG {{ vgName }}: {{ vg_free_space.stdout }}"
+    msg: "VG info: {{ vgs_info.stdout_lines }}"
+  when: vgs_info is defined
 
 - name: Create LV
   lvol:
@@ -42,7 +65,16 @@
     lv: "{{ 'lv_' ~ item }}"
     size: "100%FREE"
   with_items: "{{ new_disks }}"
-  when: vg_free_space.stdout | float > 0
+
+- name: Debug LV creation
+  command: lvs
+  register: lvs_info
+  ignore_errors: yes
+
+- name: Display LV info
+  debug:
+    msg: "LV info: {{ lvs_info.stdout_lines }}"
+  when: lvs_info is defined
 
 - name: Format the lv
   filesystem:
