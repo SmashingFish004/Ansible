@@ -1,0 +1,24 @@
+---
+- name: Configure new disks
+  hosts: all
+  become: true
+  
+  tasks:
+    - name: Scan for new disks
+      shell: echo "- - -" | sudo tee /sys/class/scsi_host/host*/scan >/dev/null
+
+    - name: Set new_disks fact
+      set_fact:
+        new_disks: "{{ new_disk | default([]) }}"
+      when: new_disk is defined
+
+    - name: Ensure new_disks is a list
+      set_fact:
+        new_disks: "{{ [new_disks] if new_disks is string else new_disks }}"
+
+    - name: Process new disks
+      include_tasks: process_disk.yml
+      loop: "{{ new_disks | default([]) }}"
+      loop_control:
+        loop_var: new_disk
+      when: new_disks | length > 0
