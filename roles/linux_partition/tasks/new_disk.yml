@@ -36,42 +36,58 @@
   debug:
     var: volume_name_results
 
-- name: Process each new disk and corresponding volume
-  become: true
-  block:
-    - name: Replace / with _ and set lv_name
-      set_fact:
-        lv_name: "{{ volume_name | replace('/', '_') }}"
-      vars:
-        volume_name: "{{ item.volume_name }}"
-
-    - name: Create logical volumes with 100% free space in vg
-      community.general.lvol:
-        vg: "{{ new_disk }}vg"
-        lv: "{{ lv_name }}"
-        size: 100%FREE
-
-    - name: Format the logical volume with ext4
-      community.general.filesystem:
-        fstype: ext4
-        dev: "/dev/{{ new_disk }}vg/{{ lv_name }}"
-
-    - name: Create the target directory
-      ansible.builtin.file:
-        path: "{{ volume_name }}"
-        state: directory
-        mode: "0755"
-      vars:
-        volume_name: "{{ item.volume_name }}"
-
-    - name: Mount the logical volume
-      ansible.posix.mount:
-        path: "{{ volume_name }}"
-        src: "/dev/{{ new_disk }}vg/{{ lv_name }}"
-        fstype: ext4
-        state: mounted
-      vars:
-        volume_name: "{{ item.volume_name }}"
+- name: Replace / with _ and set lv_name
+  set_fact:
+    lv_name: "{{ item.volume_name | replace('/', '_') }}"
   loop: "{{ volume_name_results.results }}"
   loop_control:
     loop_var: item
+
+- name: Create logical volumes with 100% free space in vg
+  become: true
+  community.general.lvol:
+    vg: "{{ new_disk }}vg"
+    lv: "{{ lv_name }}"
+    size: 100%FREE
+  loop: "{{ volume_name_results.results }}"
+  loop_control:
+    loop_var: item
+  vars:
+    lv_name: "{{ item.volume_name | replace('/', '_') }}"
+    new_disk: "{{ item.deviceName | regex_replace('/dev/', '') }}"
+
+- name: Format the logical volume with ext4
+  become: true
+  community.general.filesystem:
+    fstype: ext4
+    dev: "/dev/{{ new_disk }}vg/{{ lv_name }}"
+  loop: "{{ volume_name_results.results }}"
+  loop_control:
+    loop_var: item
+  vars:
+    lv_name: "{{ item.volume_name | replace('/', '_') }}"
+    new_disk: "{{ item.deviceName | regex_replace('/dev/', '') }}"
+
+- name: Create the target directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.volume_name }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ volume_name_results.results }}"
+  loop_control:
+    loop_var: item
+
+- name: Mount the logical volume
+  become: true
+  ansible.posix.mount:
+    path: "{{ item.volume_name }}"
+    src: "/dev/{{ new_disk }}vg/{{ lv_name }}"
+    fstype: ext4
+    state: mounted
+  loop: "{{ volume_name_results.results }}"
+  loop_control:
+    loop_var: item
+  vars:
+    lv_name: "{{ item.volume_name | replace('/', '_') }}"
+    new_disk: "{{ item.deviceName | regex_replace('/dev/', '') }}"
