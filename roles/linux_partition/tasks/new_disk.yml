@@ -1,10 +1,10 @@
-# Setup the partition when a new disk is added during reconfigure.
 ---
 - name: Scan for new disks
   become: true
   shell: echo "- - -" | sudo tee /sys/class/scsi_host/host*/scan >/dev/null
 
-- name: Create partition
+- name: Create partitions for new disks
+  become: true
   community.general.parted:
     device: "/dev/{{ item }}"
     number: 1
@@ -12,107 +12,66 @@
     flags: lvm
     state: present
     part_end: "100%"
-  with_items: "{{ new_disks }}"
+  loop: "{{ new_disks }}"
+  loop_control:
+    loop_var: new_disk
 
-- name: Debug partitions
-  command: lsblk /dev/{{ item }}1
-  register: partitions
-  with_items: "{{ new_disks }}"
-  ignore_errors: yes
+- name: Create volume groups for new disks
+  become: true
+  community.general.lvg:
+    vg: "{{ new_disk }}vg"
+    pvs: "/dev/{{ new_disk }}1"
+  loop: "{{ new_disks }}"
+  loop_control:
+    loop_var: new_disk
 
-- name: Display partition info
-  debug:
-    msg: "Partition info for /dev/{{ item.item }}1: {{ item.stdout_lines }}"
-  when: partitions.results is defined and item.stdout_lines is defined
-  with_items: "{{ partitions.results }}"
-
-- name: Set VG name
+- name: Get the name of the volume matching new disks
   set_fact:
-    vgName: "vg_data"
+    volume_name: "{{ item.name }}"
+  loop: "{{ morpheus['instance']['containers'][0]['server']['volumes'] }}"
+  when: item.deviceName == '/dev/' ~ new_disk
+  register: volume_name_results
 
-- name: Create PV
-  command: pvcreate /dev/{{ item }}1
-  register: pv_create_output
-  with_items: "{{ new_disks }}"
-  ignore_errors: yes
-
-- name: Display PV creation output
+- name: Debug the volume_name_results
   debug:
-    msg: "PV creation output for /dev/{{ item.item }}1: {{ item.stdout }}"
-  with_items: "{{ pv_create_output.results }}"
-  when: pv_create_output.results is defined
+    var: volume_name_results
 
-- name: Debug PV creation
-  command: pvs
-  register: pvs_info
-  ignore_errors: yes
+- name: Process each new disk and corresponding volume
+  become: true
+  block:
+    - name: Replace / with _ and set lv_name
+      set_fact:
+        lv_name: "{{ volume_name | replace('/', '_') }}"
+      vars:
+        volume_name: "{{ item.volume_name }}"
 
-- name: Display PV info
-  debug:
-    msg: "PV info: {{ pvs_info.stdout_lines }}"
-  when: pvs_info is defined and pvs_info.stdout_lines is defined
+    - name: Create logical volumes with 100% free space in vg
+      community.general.lvol:
+        vg: "{{ new_disk }}vg"
+        lv: "{{ lv_name }}"
+        size: 100%FREE
 
-- name: Create VG
-  lvg:
-    vg: "{{ vgName }}"
-    pvs: "/dev/{{ item }}1"
-  with_items: "{{ new_disks }}"
+    - name: Format the logical volume with ext4
+      community.general.filesystem:
+        fstype: ext4
+        dev: "/dev/{{ new_disk }}vg/{{ lv_name }}"
 
-- name: Debug VG creation
-  command: vgs
-  register: vgs_info
-  ignore_errors: yes
+    - name: Create the target directory
+      ansible.builtin.file:
+        path: "{{ volume_name }}"
+        state: directory
+        mode: "0755"
+      vars:
+        volume_name: "{{ item.volume_name }}"
 
-- name: Display VG info
-  debug:
-    msg: "VG info: {{ vgs_info.stdout_lines }}"
-  when: vgs_info is defined and vgs_info.stdout_lines is defined
-
-- name: Check VG free space
-  command: vgs --noheadings --units m -o vg_free {{ vgName }}
-  register: vg_free_space
-  ignore_errors: yes
-
-- name: Display VG free space
-  debug:
-    msg: "Free space in VG {{ vgName }}: {{ vg_free_space.stdout }}"
-  when: vg_free_space is defined and vg_free_space.stdout is defined
-
-- name: Create LV
-  lvol:
-    vg: "{{ vgName }}"
-    lv: "{{ 'lv_' ~ item }}"
-    size: "100%FREE"
-  with_items: "{{ new_disks }}"
-  when: vg_free_space.stdout | float > 0
-
-- name: Debug LV creation
-  command: lvs
-  register: lvs_info
-  ignore_errors: yes
-
-- name: Display LV info
-  debug:
-    msg: "LV info: {{ lvs_info.stdout_lines }}"
-  when: lvs_info is defined and lvs_info.stdout_lines is defined
-
-- name: Format the lv
-  filesystem:
-    fstype: ext4
-    dev: "/dev/{{ vgName }}/{{ 'lv_' ~ item }}"
-  with_items: "{{ new_disks }}"
-
-- name: Target directory
-  ansible.builtin.file:
-    path: "/mnt/{{ 'lv_' ~ item }}"
-    state: directory
-    mode: "0755"
-  with_items: "{{ new_disks }}"
-
-- name: Mount the lv
-  ansible.posix.mount:
-    path: "/mnt/{{ 'lv_' ~ item }}"
-    src: "/dev/{{ vgName }}/{{ 'lv_' ~ item }}"
-    fstype: ext4
-    state: mounted
-  with_items: "{{ new_disks }}"
+    - name: Mount the logical volume
+      ansible.posix.mount:
+        path: "{{ volume_name }}"
+        src: "/dev/{{ new_disk }}vg/{{ lv_name }}"
+        fstype: ext4
+        state: mounted
+      vars:
+        volume_name: "{{ item.volume_name }}"
+  loop: "{{ volume_name_results.results }}"
+  loop_control:
+    loop_var: item
