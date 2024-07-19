@@ -1,93 +1,62 @@
+# Setup the partition when a new disk is added during reconfigure.
 ---
 - name: Scan for new disks
   become: true
   shell: echo "- - -" | sudo tee /sys/class/scsi_host/host*/scan >/dev/null
 
-- name: Create partitions for new disks
-  become: true
+- name: Create partition
   community.general.parted:
-    device: "/dev/{{ item }}"
+    device: "/dev/{{new_disk}}"
     number: 1
     label: "gpt"
     flags: lvm
     state: present
     part_end: "100%"
-  loop: "{{ new_disks }}"
-  loop_control:
-    loop_var: new_disk
 
-- name: Create volume groups for new disks
-  become: true
+- name: Set VG name
+  set_fact:
+    vgName: "{{new_disk}}vg"
+
+- name: Create/Extend PV and VG
   community.general.lvg:
-    vg: "{{ new_disk }}vg"
-    pvs: "/dev/{{ new_disk }}1"
-  loop: "{{ new_disks }}"
-  loop_control:
-    loop_var: new_disk
+    vg: "{{ vgName }}"
+    pvs: "/dev/{{new_disk}}1"
 
-- name: Get the name of the volume matching new disks
+- name: Get the name of the volume matching new_disk
   set_fact:
     volume_name: "{{ item.name }}"
   loop: "{{ morpheus['instance']['containers'][0]['server']['volumes'] }}"
   when: item.deviceName == '/dev/' ~ new_disk
-  register: volume_name_results
+  register: volume_name_result
 
-- name: Debug the volume_name_results
+- name: Debug the volume_name_result
   debug:
-    var: volume_name_results
+    var: volume_name
 
 - name: Replace / with _ and set lv_name
   set_fact:
-    lv_name: "{{ item.volume_name | replace('/', '_') }}"
-  loop: "{{ volume_name_results.results }}"
-  loop_control:
-    loop_var: item
+    lv_name: "{{ volume_name | replace('/', '_') }}"
 
-- name: Create logical volumes with 100% free space in vg
-  become: true
+- name: LV with 100% free space in vg
   community.general.lvol:
-    vg: "{{ new_disk }}vg"
+    vg: "{{ vgName }}"
     lv: "{{ lv_name }}"
     size: 100%FREE
-  loop: "{{ volume_name_results.results }}"
-  loop_control:
-    loop_var: item
-  vars:
-    lv_name: "{{ item.volume_name | replace('/', '_') }}"
-    new_disk: "{{ item.deviceName | regex_replace('/dev/', '') }}"
 
-- name: Format the logical volume with ext4
-  become: true
+- name: Format the lv with ext4
   community.general.filesystem:
     fstype: ext4
-    dev: "/dev/{{ new_disk }}vg/{{ lv_name }}"
-  loop: "{{ volume_name_results.results }}"
-  loop_control:
-    loop_var: item
-  vars:
-    lv_name: "{{ item.volume_name | replace('/', '_') }}"
-    new_disk: "{{ item.deviceName | regex_replace('/dev/', '') }}"
+    dev: "/dev/{{ vgName }}/{{ lv_name }}"
 
-- name: Create the target directory
-  become: true
+- name: Target directory
   ansible.builtin.file:
-    path: "{{ item.volume_name }}"
+    path: "{{ volume_name }}"
     state: directory
     mode: "0755"
-  loop: "{{ volume_name_results.results }}"
-  loop_control:
-    loop_var: item
 
-- name: Mount the logical volume
-  become: true
+- name: mount the lv
   ansible.posix.mount:
-    path: "{{ item.volume_name }}"
-    src: "/dev/{{ new_disk }}vg/{{ lv_name }}"
+    path: "{{ volume_name }}"
+    src: "/dev/{{ vgName }}/{{ lv_name }}"
     fstype: ext4
     state: mounted
-  loop: "{{ volume_name_results.results }}"
-  loop_control:
-    loop_var: item
-  vars:
-    lv_name: "{{ item.volume_name | replace('/', '_') }}"
-    new_disk: "{{ item.deviceName | regex_replace('/dev/', '') }}"
