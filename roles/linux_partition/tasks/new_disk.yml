@@ -22,8 +22,9 @@
 
 - name: Display partition info
   debug:
-    msg: "Partition info: {{ partitions.stdout_lines }}"
-  when: partitions is defined
+    msg: "Partition info: {{ item.item }}: {{ item.stdout_lines }}"
+  when: partitions.results is defined and item.stdout_lines is defined
+  with_items: "{{ partitions.results }}"
 
 - name: Set VG name
   set_fact:
@@ -41,7 +42,7 @@
 - name: Display PV info
   debug:
     msg: "PV info: {{ pvs_info.stdout_lines }}"
-  when: pvs_info is defined
+  when: pvs_info is defined and pvs_info.stdout_lines is defined
 
 - name: Create VG
   lvg:
@@ -57,7 +58,7 @@
 - name: Display VG info
   debug:
     msg: "VG info: {{ vgs_info.stdout_lines }}"
-  when: vgs_info is defined
+  when: vgs_info is defined and vgs_info.stdout_lines is defined
 
 - name: Create LV
   lvol:
@@ -74,7 +75,7 @@
 - name: Display LV info
   debug:
     msg: "LV info: {{ lvs_info.stdout_lines }}"
-  when: lvs_info is defined
+  when: lvs_info is defined and lvs_info.stdout_lines is defined
 
 - name: Format the lv
   filesystem:
