@@ -33,15 +33,19 @@
   debug:
     msg: "'abcdefghijklmnopqrstuvwxyz'[{{ disk_data_count_int }}]"
 
-- name: Check if counts are different and set new_disks if necessary
+- name: Check if counts are different and set new_disk if necessary
   set_fact:
-    new_disks: "{{ ('abcdefghijklmnopqrstuvwxyz' | list)[disk_data_count_int:disk_list_count_int] | map('regex_replace', '^', 'sd') | list }}"
+    new_disk: "sd{{ 'abcdefghijklmnopqrstuvwxyz'[disk_data_count_int | int] }}"
   when: disk_list_count_int > disk_data_count_int
 
-- name: Verify if all existing disks are formatted and mounted as per the label of disk in Morpheus
-  include_tasks: existing_disk.yml
-  when: new_disks is not defined or new_disks | length == 0
+# - name: Debug new_disk variable
+#   debug:
+#     var: new_disk
 
-- name: Include a different role if new_disks are defined
+- name: Verify if all existing disks are formated and mounted as per the label of disk in Morpheus
+  include_tasks: existing_disk.yml
+  when: new_disk is not defined
+
+- name: Include a different role if new_disk is defined
   include_tasks: new_disk.yml
-  when: new_disks is defined and new_disks | length > 0
+  when: new_disk is defined
