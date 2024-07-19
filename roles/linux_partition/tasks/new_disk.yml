@@ -22,7 +22,7 @@
 
 - name: Display partition info
   debug:
-    msg: "Partition info: {{ item.item }}: {{ item.stdout_lines }}"
+    msg: "Partition info for /dev/{{ item.item }}1: {{ item.stdout_lines }}"
   when: partitions.results is defined and item.stdout_lines is defined
   with_items: "{{ partitions.results }}"
 
@@ -38,8 +38,9 @@
 
 - name: Display PV creation output
   debug:
-    msg: "PV creation output for {{ item.item }}: {{ item.stdout }}"
+    msg: "PV creation output for /dev/{{ item.item }}1: {{ item.stdout }}"
   with_items: "{{ pv_create_output.results }}"
+  when: pv_create_output.results is defined
 
 - name: Debug PV creation
   command: pvs
@@ -108,7 +109,7 @@
     mode: "0755"
   with_items: "{{ new_disks }}"
 
-- name: mount the lv
+- name: Mount the lv
   ansible.posix.mount:
     path: "/mnt/{{ 'lv_' ~ item }}"
     src: "/dev/{{ vgName }}/{{ 'lv_' ~ item }}"
